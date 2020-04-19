@@ -53,6 +53,21 @@ functions:
       - http:
           method: post
           path: todos
+          cors: true
+          authorizer: Auth
+          request:
+            # Schema that will be used to validate incoming create requests
+            schema:
+              application/json: ${file(models/create-todo-request.json)}
+          documentation:
+            summary: Create a new TODO item
+            description: Create a new TODO item
+    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-create-todo-role-${self:provider.stage}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
   # TODO: Configure this function
   UpdateTodo:
