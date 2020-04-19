@@ -1,9 +1,18 @@
 service:
   name: serverless-todo-app
 
+custom:
+  documentation:
+    api:
+      info:
+        version: v1.0.0
+        title: TODO API
+        description: Serverless application for TODO
+
 plugins:
   - serverless-webpack
   - serverless-iam-roles-per-function
+  - serverless-aws-documentation
 
 provider:
   name: aws
@@ -11,6 +20,10 @@ provider:
 
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
+
+  environment:
+    PROJECT_NAME: udacity-todo
+    TODOS_TABLE: Todos-${self:provider.stage}
 
 functions:
 
@@ -24,9 +37,15 @@ functions:
       - http:
           method: get
           path: todos
+          cors: true
+    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-get-todo-role-${self:provider.stage}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
   # TODO: Configure this function
-  GetTodos:
   CreateTodo:
     handler: src/lambda/http/createTodo.handler
     events:
@@ -61,3 +80,19 @@ functions:
 resources:
   Resources:
     # TODO: Add any necessary AWS resources
+
+    TodosDynamoDBTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: todoId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: todoId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:provider.environment.TODOS_TABLE}
