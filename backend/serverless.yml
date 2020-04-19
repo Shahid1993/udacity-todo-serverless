@@ -75,7 +75,22 @@ functions:
     events:
       - http:
           method: patch
-          path: todos/{todoId}
+          path: todos/{todoId}          
+          cors: true
+          authorizer: Auth
+          request:
+            # Schema that will be used to validate incoming create requests
+            schema:
+              application/json: ${file(models/update-todo-request.json)}
+          documentation:
+            summary: Update existing TODO item
+            description: Update existing TODO item
+    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-update-todo-role-${self:provider.stage}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
   # TODO: Configure this function
   DeleteTodo:
