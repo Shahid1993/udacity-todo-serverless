@@ -79,6 +79,22 @@ export class TodoAccess {
 
         return attributes as TodoUpdate
     }
+
+    async deleteTodo(todoId: string, userId: string) {
+        console.log(`Deleting existing todo item with id ${todoId}`)
+
+        const params = {
+            TableName: this.todosTable,
+            Key: {
+                "userId": userId,
+                "todoId": todoId
+            },
+        };
+
+        await this.docClient.delete(params).promise();
+
+        return
+    }
 }
 
 function createDynamoDBClient() {
