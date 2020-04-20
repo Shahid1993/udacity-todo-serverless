@@ -1,7 +1,19 @@
 service:
-  name: serverless-todo-app
+  name: udacity-todo-app
 
 custom:
+
+  serverless-offline:
+    httpPort: 3003
+
+  dynamodb:
+    start:
+      port: 8000
+      inMemory: true
+      migrate: true
+    stages:
+      - dev
+
   documentation:
     api:
       info:
@@ -13,18 +25,29 @@ plugins:
   - serverless-webpack
   - serverless-iam-roles-per-function
   - serverless-aws-documentation
+  - serverless-plugin-tracing
+  - serverless-plugin-canary-deployments
+  - serverless-dynamodb-local
+  - serverless-offline
+
+package:
+  individually: true
 
 provider:
   name: aws
   runtime: nodejs12.x
 
+  tracing:
+    lambda: true
+    apiGateway: true
+
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
 
   environment:
-    PROJECT_NAME: udacity-todo
+    PROJECT_NAME: udacity-todo-app
     TODOS_TABLE: Todos-${self:provider.stage}
-    TODO_S3_BUCKET: todo-attachments-aap-shahid-${self:provider.stage}
+    TODO_S3_BUCKET: todo-attachments-shahid-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
 
 functions:
@@ -47,6 +70,14 @@ functions:
         Action:
           - dynamodb:query
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+      - Effect: Allow
+        Action:
+          - codedeploy:*
+        Resource:
+          - '*'    
+    deploymentSettings:
+      type: Linear10PercentEvery1Minute
+      alias: Live
 
   # TODO: Configure this function
   CreateTodo:
@@ -70,6 +101,14 @@ functions:
         Action:
           - dynamodb:PutItem
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+      - Effect: Allow
+        Action:
+          - codedeploy:*
+        Resource:
+          - '*'       
+    deploymentSettings:
+      type: Linear10PercentEvery1Minute
+      alias: Live
 
   # TODO: Configure this function
   UpdateTodo:
@@ -92,7 +131,15 @@ functions:
       - Effect: Allow
         Action:
           - dynamodb:UpdateItem
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE} 
+      - Effect: Allow
+        Action:
+          - codedeploy:*
+        Resource:
+          - '*'    
+    deploymentSettings:
+      type: Linear10PercentEvery1Minute
+      alias: Live
 
   # TODO: Configure this function
   DeleteTodo:
@@ -104,14 +151,22 @@ functions:
           cors: true
           authorizer: Auth
           documentation:
-            summary: Delete existing TODO item
-            description: Delete existing TODO item
+            summary: Delete existing TODO item function
+            description: Delete existing TODO item function
     iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-delete-todo-role-${self:provider.stage}
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:DeleteItem
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}  
+      - Effect: Allow
+        Action:
+          - codedeploy:*
+        Resource:
+          - '*'     
+    deploymentSettings:
+      type: Linear10PercentEvery1Minute
+      alias: Live
 
   # TODO: Configure this function
   GenerateUploadUrl:
@@ -135,11 +190,30 @@ functions:
         Action:
           - s3:PutObject
           - s3:GetObject
-        Resource: arn:aws:s3:::${self:provider.environment.TODO_S3_BUCKET}/*
+        Resource: arn:aws:s3:::${self:provider.environment.TODO_S3_BUCKET}/* 
+      - Effect: Allow
+        Action:
+          - codedeploy:*
+        Resource:
+          - '*'       
+    deploymentSettings:
+      type: Linear10PercentEvery1Minute
+      alias: Live
 
 resources:
   Resources:
     # TODO: Add any necessary AWS resources
+
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+          gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS,POST'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: ApiGatewayRestApi
 
     TodosDynamoDBTable:
       Type: AWS::DynamoDB::Table
